@@ -44,21 +44,34 @@ async function startScan() {
 
         let cameraId = cameras[0].id;
 
-        // 背面カメラを優先
-        const backCamera = cameras.find(camera => {
+        // メイン(1x)カメラを優先
+let backCamera =
+    cameras.find(c =>
+        (c.label || "").toLowerCase().includes("back")
+    );
 
-            const label = (camera.label || "").toLowerCase();
+// "Back Camera" が無ければ "Wide" を優先
+if (!backCamera) {
+    backCamera = cameras.find(c =>
+        (c.label || "").toLowerCase().includes("wide")
+    );
+}
 
-            return (
-                label.includes("back") ||
-                label.includes("rear") ||
-                label.includes("environment") ||
-                label.includes("wide") ||
-                label.includes("ultra")
-            );
+// Ultra Wide は最後の候補
+if (!backCamera) {
+    backCamera = cameras.find(c =>
+        (c.label || "").toLowerCase().includes("ultra")
+    );
+}
 
-        });
+// Rear はその次
+if (!backCamera) {
+    backCamera = cameras.find(c =>
+        (c.label || "").toLowerCase().includes("rear")
+    );
+}
 
+let cameraId = backCamera ? backCamera.id : cameras[0].id;
         if (backCamera) {
 
             cameraId = backCamera.id;
