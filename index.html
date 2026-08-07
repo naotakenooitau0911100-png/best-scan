@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BEST Scan</title>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    text-align:center;
+    background:#111;
+    color:white;
+}
+#reader{
+    width:320px;
+    margin:20px auto;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>BEST Scan</h1>
+
+<div id="reader"></div>
+
+<script>
+
+const scanner = new Html5Qrcode("reader");
+
+scanner.start(
+    { facingMode: "environment" },
+    {
+        fps:10,
+        qrbox:250
+    },
+    (text)=>{
+        alert(text);
+    }
+);
+
+</script>
+
+</body>
+</html>
