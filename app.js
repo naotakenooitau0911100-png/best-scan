@@ -7,9 +7,9 @@ const makerEl = document.getElementById("maker");
 const nameEl = document.getElementById("name");
 const messageEl = document.getElementById("message");
 
-document.getElementById("startBtn").addEventListener("click", startScan);
-document.getElementById("stopBtn").addEventListener("click", stopScan);
-document.getElementById("saveBtn").addEventListener("click", saveCurrent);
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const saveBtn = document.getElementById("saveBtn");
 
 let currentItem = {
   jan: "",
@@ -17,92 +17,169 @@ let currentItem = {
   name: ""
 };
 
+startBtn.addEventListener("click", startScan);
+stopBtn.addEventListener("click", stopScan);
+saveBtn.addEventListener("click", saveCurrent);
+
+// カメラ起動
 async function startScan() {
 
   if (scanner) return;
 
-  scanner = new Html5Qrcode("reader");
+  messageEl.textContent = "カメラを起動しています...";
 
-  await scanner.start(
-    { facingMode: "environment" },
-    {
-      fps: 10,
-      qrbox: { width: 250, height: 120 }
-    },
-    onScanSuccess
-  );
+  try {
+
+    scanner = new Html5Qrcode("reader");
+
+    const cameras = await Html5Qrcode.getCameras();
+
+    if (!cameras || cameras.length === 0) {
+      messageEl.textContent = "カメラが見つかりません";
+      alert("カメラが見つかりません");
+      return;
+    }
+
+    console.log(cameras);
+
+    // 背面カメラ優先
+    let cameraId = cameras[0].id;
+
+    const backCamera = cameras.find(c => {
+
+      const label = c.label.toLowerCase();
+
+      return (
+        label.includes("back") ||
+        label.includes("rear") ||
+        label.includes("environment")
+      );
+
+    });
+
+    if (backCamera) {
+      cameraId = backCamera.id;
+    }
+
+    await scanner.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: {
+          width: 250,
+          height: 120
+        },
+        aspectRatio: 1.7778
+      },
+      onScanSuccess,
+      () => {}
+    );
+
+    messageEl.textContent = "バーコードを読み取ってください";
+
+  } catch (err) {
+
+    console.error(err);
+
+    messageEl.textContent = err.message;
+
+    alert(
+      "カメラ起動エラー\n\n" +
+      err.message
+    );
+
+    scanner = null;
+
+  }
 
 }
 
+// カメラ停止
 async function stopScan() {
 
-  if (!scanner) return;
+  try {
 
-  await scanner.stop();
-  await scanner.clear();
+    if (!scanner) return;
+
+    await scanner.stop();
+    await scanner.clear();
+
+  } catch (e) {
+
+    console.log(e);
+
+  }
 
   scanner = null;
 
 }
 
+// 読み取り成功
 async function onScanSuccess(decodedText) {
 
   currentItem.jan = decodedText;
 
-  janEl.textContent = decodedText;
-
-  // 商品検索は次段階で接続
   currentItem.maker = "";
   currentItem.name = "";
 
+  janEl.textContent = decodedText;
   makerEl.textContent = "(取得待ち)";
   nameEl.textContent = "(取得待ち)";
 
   messageEl.textContent = "読み取り完了";
 
-  stopScan();
+  await stopScan();
 
 }
 
+// 保存
 async function saveCurrent() {
 
   if (!currentItem.jan) {
-
     alert("先にバーコードを読み取ってください");
-
     return;
-
   }
 
-  const res = await fetch(API_URL, {
+  try {
 
-    method: "POST",
+    const res = await fetch(API_URL, {
 
-    redirect: "follow",
+      method: "POST",
 
-    headers: {
+      redirect: "follow",
 
-      "Content-Type":"text/plain;charset=utf-8"
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
 
-    },
+      body: JSON.stringify(currentItem)
 
-    body: JSON.stringify(currentItem)
+    });
 
-  });
+    const json = await res.json();
 
-  const json = await res.json();
+    if (json.status === "created") {
 
-  if(json.status==="created"){
+      messageEl.textContent = "新規登録しました";
 
-      messageEl.textContent="新規登録しました";
+    } else if (json.status === "updated") {
 
-  }else if(json.status==="updated"){
+      messageEl.textContent =
+        "数量を更新しました（" + json.quantity + "）";
 
-      messageEl.textContent="数量を更新しました（"+json.quantity+"）";
+    } else {
 
-  }else{
+      messageEl.textContent =
+        "エラー：" + json.message;
 
-      messageEl.textContent="エラー："+json.message;
+    }
+
+  } catch (err) {
+
+    console.error(err);
+
+    messageEl.textContent =
+      "通信エラー：" + err.message;
 
   }
 
