@@ -42,24 +42,24 @@ async function startScan() {
 
     console.log(cameras);
 
-    // 背面カメラ優先
-    let cameraId = cameras[0].id;
+    // 背面カメラを優先選択
+let cameraId = cameras[cameras.length - 1].id;
 
-    const backCamera = cameras.find(c => {
+// ラベルから背面カメラを探す
+const backCamera = cameras.find(c => {
+  const label = (c.label || "").toLowerCase();
 
-      const label = c.label.toLowerCase();
+  return (
+    label.includes("back") ||
+    label.includes("rear") ||
+    label.includes("environment") ||
+    label.includes("wide")
+  );
+});
 
-      return (
-        label.includes("back") ||
-        label.includes("rear") ||
-        label.includes("environment")
-      );
-
-    });
-
-    if (backCamera) {
-      cameraId = backCamera.id;
-    }
+if (backCamera) {
+  cameraId = backCamera.id;
+}
 
     await scanner.start(
       cameraId,
