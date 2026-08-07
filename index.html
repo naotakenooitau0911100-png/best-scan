@@ -40,9 +40,32 @@ scanner.start(
     },
     async (text) => {
 
-    console.log(text);
+    const response = await fetch(
+        "https://script.google.com/macros/s/AKfycby8nRX5eTNkMspVz-eOcP4qA0YA22psZNpx_Y8YaayDfVnmH-0mamc5_45-2uIdwOuc/exec",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                jan: text
+            })
+        }
+    );
 
-    alert("読み取り成功\n" + text);
+    const data = await response.json();
+
+    if(data.status==="ok"){
+
+        alert(
+            data.maker + "\n" + data.name
+        );
+
+    }else{
+
+        alert("未登録商品");
+
+    }
 
 }
 );
