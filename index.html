@@ -1,75 +1,59 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BEST Scan</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BEST Scan</title>
 
-<script src="https://unpkg.com/html5-qrcode"></script>
+    <link rel="stylesheet" href="style.css">
 
-<style>
-body{
-    font-family:Arial,sans-serif;
-    text-align:center;
-    background:#111;
-    color:white;
-}
-#reader{
-    width:320px;
-    margin:20px auto;
-}
-</style>
-
+    <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 
 <body>
 
-<h1>BEST Scan</h1>
+<header>
+    <h1>BEST Scan</h1>
+</header>
 
-<div id="reader"></div>
+<main>
 
-<script>
+    <div class="button-area">
+        <button id="startBtn">
+            📷 スキャン開始
+        </button>
 
-const scanner = new Html5Qrcode("reader");
+        <button id="stopBtn">
+            ■ 停止
+        </button>
+    </div>
 
-scanner.start(
-    { facingMode: "environment" },
-    {
-        fps:10,
-        qrbox:250
-    },
-    async (text) => {
+    <div id="reader"></div>
 
-    const response = await fetch(
-    "https://script.google.com/macros/s/AKfycby8nRX5eTNkMspVz-eOcP4qA0YA22psZNpx_Y8YaayDfVnmH-0mamc5_45-2uIdwOuc/exec",        {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                jan: text
-            })
-        }
-    );
+    <div class="result">
 
-    const data = await response.json();
+        <h2>読み取り結果</h2>
 
-    if(data.status==="ok"){
+        <p><strong>JAN</strong></p>
+        <div id="jan">---</div>
 
-        alert(
-            data.maker + "\n" + data.name
-        );
+        <p><strong>メーカー</strong></p>
+        <div id="maker">---</div>
 
-    }else{
+        <p><strong>商品名</strong></p>
+        <div id="name">---</div>
 
-        alert("未登録商品");
+        <button id="saveBtn">
+            Googleスプレッドシートへ保存
+        </button>
 
-    }
+        <div id="message"></div>
 
-}
-);
+    </div>
 
-</script>
+</main>
+
+<script src="app.js"></script>
 
 </body>
 </html>
