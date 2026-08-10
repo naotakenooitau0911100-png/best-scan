@@ -1,6 +1,16 @@
+// ======================================
+// BEST Scan Ver1
+// app.js Part1
+// ======================================
+
 const API_URL = "https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
 
 let scanner = null;
+let currentItem = {
+    jan: "",
+    maker: "",
+    name: ""
+};
 
 const janEl = document.getElementById("jan");
 const makerEl = document.getElementById("maker");
@@ -11,16 +21,13 @@ const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
 const saveBtn = document.getElementById("saveBtn");
 
-let currentItem = {
-    jan: "",
-    maker: "",
-    name: ""
-};
-
 startBtn.addEventListener("click", startScan);
 stopBtn.addEventListener("click", stopScan);
 saveBtn.addEventListener("click", saveCurrent);
 
+// =========================
+// カメラ起動
+// =========================
 async function startScan() {
 
     if (scanner) return;
@@ -34,64 +41,58 @@ async function startScan() {
         const cameras = await Html5Qrcode.getCameras();
 
         if (!cameras || cameras.length === 0) {
-            alert("カメラが見つかりません");
-            messageEl.textContent = "カメラが見つかりません";
-            return;
+            throw new Error("カメラが見つかりません");
         }
 
-        // デバッグ用
-        alert(JSON.stringify(cameras, null, 2));
+        // 初回だけ確認用（完成後は削除）
+        console.table(cameras);
 
-        let cameraId = cameras[0].id;
+        // メインカメラ(1x)を優先
+        let camera = cameras.find(c => {
+            const label = (c.label || "").toLowerCase();
 
-        // メイン(1x)カメラを優先
-let backCamera =
-    cameras.find(c =>
-        (c.label || "").toLowerCase().includes("back")
-    );
+            return (
+                label.includes("back camera") ||
+                label === "back camera"
+            );
+        });
 
-// "Back Camera" が無ければ "Wide" を優先
-if (!backCamera) {
-    backCamera = cameras.find(c =>
-        (c.label || "").toLowerCase().includes("wide")
-    );
-}
+        // Telephotoを除外
+        if (!camera) {
+            camera = cameras.find(c => {
+                const label = (c.label || "").toLowerCase();
 
-// Ultra Wide は最後の候補
-if (!backCamera) {
-    backCamera = cameras.find(c =>
-        (c.label || "").toLowerCase().includes("ultra")
-    );
-}
+                return (
+                    (label.includes("back") ||
+                     label.includes("rear") ||
+                     label.includes("wide")) &&
+                    !label.includes("tele") &&
+                    !label.includes("ultra")
+                );
+            });
+        }
 
-// Rear はその次
-if (!backCamera) {
-    backCamera = cameras.find(c =>
-        (c.label || "").toLowerCase().includes("rear")
-    );
-}
+        // 最後の保険
+        if (!camera) {
+            camera = cameras.find(c =>
+                (c.label || "").toLowerCase().includes("back")
+            );
+        }
 
-let cameraId = backCamera ? backCamera.id : cameras[0].id;
-        if (backCamera) {
-
-            cameraId = backCamera.id;
-
-        } else if (cameras.length > 1) {
-
-            // iPhoneは最後が背面のことが多い
-            cameraId = cameras[cameras.length - 1].id;
-
+        if (!camera) {
+            camera = cameras[cameras.length - 1];
         }
 
         await scanner.start(
-            cameraId,
+            camera.id,
             {
                 fps: 10,
                 qrbox: {
                     width: 260,
                     height: 120
                 },
-                aspectRatio: 1.7778
+                aspectRatio: 1.7778,
+                disableFlip: false
             },
             onScanSuccess,
             () => {}
@@ -113,56 +114,93 @@ let cameraId = backCamera ? backCamera.id : cameras[0].id;
 
 }
 
+// =========================
+// カメラ停止
+// =========================
 async function stopScan() {
+
+    if (!scanner) return;
 
     try {
 
-        if (!scanner) return;
-
         await scanner.stop();
-
         await scanner.clear();
 
     } catch (e) {
-
         console.log(e);
-
     }
 
     scanner = null;
 
 }
+// =========================
+// バーコード読取成功
+// =========================
 async function onScanSuccess(decodedText) {
 
-    currentItem.jan = decodedText;
-    currentItem.maker = "";
-    currentItem.name = "";
+    // 二重読取防止
+    if (currentItem.jan === decodedText) return;
+
+    currentItem = {
+        jan: decodedText,
+        maker: "",
+        name: ""
+    };
 
     janEl.textContent = decodedText;
-    makerEl.textContent = "(取得待ち)";
-    nameEl.textContent = "(取得待ち)";
+    makerEl.textContent = "検索中...";
+    nameEl.textContent = "検索中...";
 
-    messageEl.textContent = "読み取り完了";
+    messageEl.textContent = "JANコード読取完了";
 
+    // カメラ停止
     await stopScan();
+
+    // 商品検索
+    await searchJan(decodedText);
 
 }
 
-async function saveCurrent() {
+// =========================
+// JAN検索（仮）
+// =========================
+async function searchJan(jan) {
 
-    if (!currentItem.jan) {
+    try {
 
-        alert("先にバーコードを読み取ってください");
+        // ここは次でAPI接続
+        currentItem.maker = "";
+        currentItem.name = "";
 
-        return;
+        makerEl.textContent = "取得予定";
+        nameEl.textContent = "取得予定";
+
+        // 自動保存
+        await saveCurrent();
+
+    } catch (err) {
+
+        console.error(err);
+
+        makerEl.textContent = "取得失敗";
+        nameEl.textContent = "取得失敗";
 
     }
+
+}
+
+// =========================
+// GAS保存
+// =========================
+async function saveCurrent() {
+
+    if (!currentItem.jan) return;
 
     messageEl.textContent = "保存しています...";
 
     try {
 
-        const res = await fetch(API_URL, {
+        const response = await fetch(API_URL, {
 
             method: "POST",
 
@@ -176,7 +214,7 @@ async function saveCurrent() {
 
         });
 
-        const json = await res.json();
+        const json = await response.json();
 
         if (json.status === "created") {
 
@@ -185,12 +223,12 @@ async function saveCurrent() {
         } else if (json.status === "updated") {
 
             messageEl.textContent =
-                "✅ 数量を更新しました（" + json.quantity + "）";
+                "✅ 数量：" + json.quantity;
 
         } else {
 
             messageEl.textContent =
-                "❌ エラー：" + json.message;
+                "❌ " + json.message;
 
         }
 
@@ -199,8 +237,25 @@ async function saveCurrent() {
         console.error(err);
 
         messageEl.textContent =
-            "❌ 通信エラー：" + err.message;
+            "通信エラー";
 
     }
+
+    // 2秒後に次のスキャン開始
+    setTimeout(() => {
+
+        currentItem = {
+            jan: "",
+            maker: "",
+            name: ""
+        };
+
+        janEl.textContent = "---";
+        makerEl.textContent = "---";
+        nameEl.textContent = "---";
+
+        startScan();
+
+    }, 2000);
 
 }
