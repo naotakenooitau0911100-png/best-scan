@@ -1,7 +1,5 @@
 
 const API_URL="https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
-let scanner=null;
-let currentItem={jan:"",maker:"",name:""};
 const janEl=document.getElementById("jan");
 const makerEl=document.getElementById("maker");
 const nameEl=document.getElementById("name");
