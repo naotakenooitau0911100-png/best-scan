@@ -1,18 +1,21 @@
-// ======================================
+// =====================================
 // BEST Scan Ver1
-// app.js Part1
-// ======================================
+// ZXing Edition
+// Part1
+// =====================================
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
 
-let scanner = null;
 let codeReader = null;
 let selectedDeviceId = null;
+
 let currentItem = {
     jan: "",
     maker: "",
     name: ""
 };
+
+const video = document.getElementById("reader");
 
 const janEl = document.getElementById("jan");
 const makerEl = document.getElementById("maker");
@@ -27,17 +30,11 @@ startBtn.addEventListener("click", startScan);
 stopBtn.addEventListener("click", stopScan);
 saveBtn.addEventListener("click", saveCurrent);
 
-// =========================
-// カメラ起動
-// =========================
-// =========================
-// ZXing カメラ起動
-// =========================
 async function startScan() {
 
     if (codeReader) return;
 
-    messageEl.textContent = "カメラを起動しています...";
+    messageEl.textContent = "カメラ起動中...";
 
     try {
 
@@ -45,7 +42,7 @@ async function startScan() {
 
         const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
 
-        if (!devices.length) {
+        if (devices.length === 0) {
             throw new Error("カメラが見つかりません");
         }
 
@@ -79,11 +76,11 @@ async function startScan() {
 
         selectedDeviceId = device.deviceId;
 
-        await codeReader.decodeFromVideoDevice(
+        codeReader.decodeFromVideoDevice(
 
             selectedDeviceId,
 
-            "reader",
+            video,
 
             (result, err) => {
 
@@ -113,26 +110,21 @@ async function startScan() {
 
 }
 
-// =========================
-// ZXing カメラ停止
-// =========================
 async function stopScan() {
 
-    if (codeReader) {
+    if (!codeReader) return;
 
-        codeReader.reset();
+    codeReader.reset();
 
-        codeReader = null;
-
-    }
+    codeReader = null;
 
 }
-// =========================
-// バーコード読取成功
-// =========================
+// =====================================
+// Part2
+// =====================================
+
 async function onScanSuccess(decodedText) {
 
-    // 二重読取防止
     if (currentItem.jan === decodedText) return;
 
     currentItem = {
@@ -142,50 +134,17 @@ async function onScanSuccess(decodedText) {
     };
 
     janEl.textContent = decodedText;
-    makerEl.textContent = "検索中...";
-    nameEl.textContent = "検索中...";
+    makerEl.textContent = "取得中...";
+    nameEl.textContent = "取得中...";
 
-    messageEl.textContent = "JANコード読取完了";
+    messageEl.textContent = "読み取り成功";
 
-    // カメラ停止
     await stopScan();
 
-    // 商品検索
-    await searchJan(decodedText);
+    await saveCurrent();
 
 }
 
-// =========================
-// JAN検索（仮）
-// =========================
-async function searchJan(jan) {
-
-    try {
-
-        // ここは次でAPI接続
-        currentItem.maker = "";
-        currentItem.name = "";
-
-        makerEl.textContent = "取得予定";
-        nameEl.textContent = "取得予定";
-
-        // 自動保存
-        await saveCurrent();
-
-    } catch (err) {
-
-        console.error(err);
-
-        makerEl.textContent = "取得失敗";
-        nameEl.textContent = "取得失敗";
-
-    }
-
-}
-
-// =========================
-// GAS保存
-// =========================
 async function saveCurrent() {
 
     if (!currentItem.jan) return;
@@ -198,11 +157,11 @@ async function saveCurrent() {
 
             method: "POST",
 
-            redirect: "follow",
-
             headers: {
                 "Content-Type": "text/plain;charset=utf-8"
             },
+
+            redirect: "follow",
 
             body: JSON.stringify(currentItem)
 
@@ -212,12 +171,12 @@ async function saveCurrent() {
 
         if (json.status === "created") {
 
-            messageEl.textContent = "✅ 新規登録しました";
+            messageEl.textContent = "✅ 新規登録";
 
         } else if (json.status === "updated") {
 
             messageEl.textContent =
-                "✅ 数量：" + json.quantity;
+                "✅ 数量 " + json.quantity;
 
         } else {
 
@@ -235,7 +194,6 @@ async function saveCurrent() {
 
     }
 
-    // 2秒後に次のスキャン開始
     setTimeout(() => {
 
         currentItem = {
@@ -250,6 +208,58 @@ async function saveCurrent() {
 
         startScan();
 
-    }, 2000);
+    }, 1500);
 
 }
+// =====================================
+// Part3
+// JAN検索（仮実装）
+// =====================================
+
+async function searchJan(jan) {
+
+    try {
+
+        // 将来API接続予定
+        currentItem.maker = "";
+        currentItem.name = "";
+
+        makerEl.textContent = "未取得";
+        nameEl.textContent = "未取得";
+
+    } catch (err) {
+
+        console.error(err);
+
+        makerEl.textContent = "取得失敗";
+        nameEl.textContent = "取得失敗";
+
+    }
+
+}
+
+// =====================================
+// リセット
+// =====================================
+
+function resetScreen() {
+
+    currentItem = {
+        jan: "",
+        maker: "",
+        name: ""
+    };
+
+    janEl.textContent = "---";
+    makerEl.textContent = "---";
+    nameEl.textContent = "---";
+
+    messageEl.textContent = "";
+
+}
+
+// =====================================
+// 初期表示
+// =====================================
+
+resetScreen();
