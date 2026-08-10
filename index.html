@@ -1,57 +1,53 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BEST Scan</title>
 
-    <link rel="stylesheet" href="style.css">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+
+<title>BEST Scan</title>
+
+<link rel="stylesheet" href="style.css">
 
 <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 
 <body>
 
-<header>
-    <h1>BEST Scan</h1>
-</header>
+<div class="button-area">
 
-<main>
+<button id="startBtn">
+📷 スキャン開始
+</button>
 
-    <div class="button-area">
-        <button id="startBtn">
-            📷 スキャン開始
-        </button>
+<button id="stopBtn">
+■ 停止
+</button>
 
-        <button id="stopBtn">
-            ■ 停止
-        </button>
-    </div>
+</div>
 
-    <video id="reader" playsinline autoplay muted></video>
+<div id="reader"></div>
 
-    <div class="result">
+<div class="result">
 
-        <h2>読み取り結果</h2>
+<h2>読み取り結果</h2>
 
-        <p><strong>JAN</strong></p>
-        <div id="jan">---</div>
+<p><strong>JAN</strong></p>
+<div id="jan">---</div>
 
-        <p><strong>メーカー</strong></p>
-        <div id="maker">---</div>
+<p><strong>メーカー</strong></p>
+<div id="maker">---</div>
 
-        <p><strong>商品名</strong></p>
-        <div id="name">---</div>
+<p><strong>商品名</strong></p>
+<div id="name">---</div>
 
-        <button id="saveBtn">
-            Googleスプレッドシートへ保存
-        </button>
+<button id="saveBtn">
+Googleスプレッドシートへ保存
+</button>
 
-        <div id="message"></div>
+<div id="message"></div>
 
-    </div>
-
-</main>
+</div>
 
 <script src="app.js"></script>
 
