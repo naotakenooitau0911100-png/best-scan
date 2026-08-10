@@ -83,21 +83,14 @@ async function startScan() {
             camera = cameras[cameras.length - 1];
         }
 
-        await scanner.start(
-            camera.id,
-            {
-                fps: 10,
-                qrbox: {
-                    width: 260,
-                    height: 120
-                },
-                aspectRatio: 1.7778,
-                disableFlip: false
-            },
-            onScanSuccess,
-            () => {}
-        );
-
+      await scanner.start(
+    camera.id,
+    {
+        fps: 10,
+        qrbox: 250
+    },
+    onScanSuccess
+);
         messageEl.textContent = "バーコードを読み取ってください";
 
     } catch (err) {
