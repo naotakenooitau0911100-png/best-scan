@@ -6,6 +6,8 @@
 const API_URL = "https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
 
 let scanner = null;
+let codeReader = null;
+let selectedDeviceId = null;
 let currentItem = {
     jan: "",
     maker: "",
@@ -28,69 +30,73 @@ saveBtn.addEventListener("click", saveCurrent);
 // =========================
 // カメラ起動
 // =========================
+// =========================
+// ZXing カメラ起動
+// =========================
 async function startScan() {
 
-    if (scanner) return;
+    if (codeReader) return;
 
     messageEl.textContent = "カメラを起動しています...";
 
     try {
 
-        scanner = new Html5Qrcode("reader");
+        codeReader = new ZXing.BrowserMultiFormatReader();
 
-        const cameras = await Html5Qrcode.getCameras();
+        const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
 
-        if (!cameras || cameras.length === 0) {
+        if (!devices.length) {
             throw new Error("カメラが見つかりません");
         }
 
-        // 初回だけ確認用（完成後は削除）
-        alert(JSON.stringify(cameras, null, 2));
+        console.table(devices);
 
-        // メインカメラ(1x)を優先
-        let camera = cameras.find(c => {
-            const label = (c.label || "").toLowerCase();
+        let device = devices.find(d => {
+
+            const label = (d.label || "").toLowerCase();
 
             return (
-                label.includes("back camera") ||
-                label === "back camera"
+                label.includes("back") &&
+                !label.includes("tele") &&
+                !label.includes("ultra")
             );
+
         });
 
-        // Telephotoを除外
-        if (!camera) {
-            camera = cameras.find(c => {
-                const label = (c.label || "").toLowerCase();
+        if (!device) {
 
-                return (
-                    (label.includes("back") ||
-                     label.includes("rear") ||
-                     label.includes("wide")) &&
-                    !label.includes("tele") &&
-                    !label.includes("ultra")
-                );
-            });
-        }
-
-        // 最後の保険
-        if (!camera) {
-            camera = cameras.find(c =>
-                (c.label || "").toLowerCase().includes("back")
+            device = devices.find(d =>
+                (d.label || "").toLowerCase().includes("back")
             );
+
         }
 
-        if (!camera) {
-            camera = cameras[cameras.length - 1];
+        if (!device) {
+
+            device = devices[devices.length - 1];
+
         }
 
-      await scanner.start(
-    camera.id,
-    {
-        fps: 10,
-        qrbox: 250
-    },
-    onScanSuccess
-);
+        selectedDeviceId = device.deviceId;
+
+        await codeReader.decodeFromVideoDevice(
+
+            selectedDeviceId,
+
+            "reader",
+
+            (result, err) => {
+
+                if (result) {
+
+                    onScanSuccess(result.getText());
+
+                }
+
+            }
+
+        );
+
         messageEl.textContent = "バーコードを読み取ってください";
 
     } catch (err) {
@@ -101,29 +107,24 @@ async function startScan() {
 
         messageEl.textContent = err.message;
 
-        scanner = null;
+        codeReader = null;
 
     }
 
 }
 
 // =========================
-// カメラ停止
+// ZXing カメラ停止
 // =========================
 async function stopScan() {
 
-    if (!scanner) return;
+    if (codeReader) {
 
-    try {
+        codeReader.reset();
 
-        await scanner.stop();
-        await scanner.clear();
+        codeReader = null;
 
-    } catch (e) {
-        console.log(e);
     }
-
-    scanner = null;
 
 }
 // =========================
