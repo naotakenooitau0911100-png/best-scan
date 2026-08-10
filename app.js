@@ -1,7 +1,4 @@
-// =====================================
-// BEST Scan Ver1
-// app.js
-// =====================================
+// BEST Scan Ver1 - 楽天JAN検索 + 在庫登録
 
 const API_URL = "https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
 
@@ -26,18 +23,12 @@ startBtn.addEventListener("click", startScan);
 stopBtn.addEventListener("click", stopScan);
 saveBtn.addEventListener("click", saveCurrent);
 
-// =====================================
-// カメラ起動
-// =====================================
-
 async function startScan() {
-
     if (scanner) return;
 
     messageEl.textContent = "カメラを起動しています...";
 
     try {
-
         scanner = new Html5Qrcode("reader");
 
         await scanner.start(
@@ -50,18 +41,21 @@ async function startScan() {
                 }
             },
             async (decodedText) => {
-
                 if (!decodedText) return;
 
-                currentItem.jan = decodedText;
+                currentItem = {
+                    jan: String(decodedText).trim(),
+                    maker: "",
+                    name: ""
+                };
 
-                janEl.textContent = decodedText;
-                makerEl.textContent = "取得待ち";
-                nameEl.textContent = "取得待ち";
-
+                janEl.textContent = currentItem.jan;
+                makerEl.textContent = "楽天検索中...";
+                nameEl.textContent = "楽天検索中...";
                 messageEl.textContent = "JAN読み取り完了";
 
                 await stopScan();
+                await saveCurrent();
             },
             () => {}
         );
@@ -69,28 +63,18 @@ async function startScan() {
         messageEl.textContent = "バーコードを読み取ってください";
 
     } catch (error) {
-
         console.error(error);
-
-        messageEl.textContent =
-            "カメラを起動できませんでした";
+        messageEl.textContent = "カメラを起動できませんでした";
 
         try {
-            if (scanner) {
-                await scanner.clear();
-            }
+            if (scanner) await scanner.clear();
         } catch (e) {}
 
         scanner = null;
     }
 }
 
-// =====================================
-// カメラ停止
-// =====================================
-
 async function stopScan() {
-
     if (!scanner) return;
 
     try {
@@ -108,21 +92,15 @@ async function stopScan() {
     scanner = null;
 }
 
-// =====================================
-// GASへ保存
-// =====================================
-
 async function saveCurrent() {
-
     if (!currentItem.jan) {
         alert("先にバーコードを読み取ってください");
         return;
     }
 
-    messageEl.textContent = "保存しています...";
+    messageEl.textContent = "楽天で商品情報を検索しています...";
 
     try {
-
         const response = await fetch(API_URL, {
             method: "POST",
             redirect: "follow",
@@ -134,32 +112,32 @@ async function saveCurrent() {
 
         const json = await response.json();
 
-        if (json.status === "created") {
-
-            messageEl.textContent =
-                "✅ 新規登録しました";
-
-        } else if (json.status === "updated") {
-
-            messageEl.textContent =
-                "✅ 数量を更新しました（" +
-                json.quantity +
-                "）";
-
+        if (json.maker) {
+            currentItem.maker = json.maker;
+            makerEl.textContent = json.maker;
         } else {
+            makerEl.textContent = "未取得";
+        }
 
+        if (json.name) {
+            currentItem.name = json.name;
+            nameEl.textContent = json.name;
+        } else {
+            nameEl.textContent = "未取得";
+        }
+
+        if (json.status === "created") {
+            messageEl.textContent = "✅ 新規登録しました（数量 1）";
+        } else if (json.status === "updated") {
             messageEl.textContent =
-                "❌ エラー：" +
-                (json.message || "保存に失敗しました");
-
+                "✅ 数量を更新しました（" + json.quantity + "）";
+        } else {
+            messageEl.textContent =
+                "❌ エラー：" + (json.message || "保存に失敗しました");
         }
 
     } catch (error) {
-
         console.error(error);
-
-        messageEl.textContent =
-            "❌ 通信エラー：" +
-            error.message;
+        messageEl.textContent = "❌ 通信エラー：" + error.message;
     }
 }
