@@ -1,52 +1,34 @@
 // =====================================
-// BEST Scan Ver1
+// BEST Scan
 // app.js
-// 楽天JAN検索 → GAS在庫登録
+// 楽天 商品価格ナビ → 楽天市場 fallback
 // =====================================
-
-// -------------------------------------
-// GAS API
-// -------------------------------------
 
 const API_URL =
     "https://script.google.com/macros/s/AKfycbzw4EnwTKAj7_NDQV_qUL0UTXjoi3UiYc5iHUL4HapBFTABhmKdXW-RxWSNw3AYSz99/exec";
 
-// -------------------------------------
-// 楽天API
-// -------------------------------------
-
-const RAKUTEN_API_URL =
+// 楽天 商品価格ナビ製品検索API
+const RAKUTEN_PRODUCT_API =
     "https://openapi.rakuten.co.jp/ichibaproduct/api/Product/Search/20250801";
 
-// -------------------------------------
-// 楽天認証
-// -------------------------------------
+// 楽天市場 商品検索API
+const RAKUTEN_ITEM_API =
+    "https://openapi.rakuten.co.jp/ichibams/api/IchibaItem/Search/20260701";
 
+// 楽天認証
 const RAKUTEN_APP_ID =
     "3646974f-f5d8-42ca-ac9e-baa64e85e179";
 
 const RAKUTEN_ACCESS_KEY =
     "pk_p2ATD3EG1jv3hM1l7mmoHfBmCI3fF1denIRIYG5EL9M";
 
-// -------------------------------------
-// スキャナー
-// -------------------------------------
-
 let scanner = null;
-
-// -------------------------------------
-// 現在の商品
-// -------------------------------------
 
 let currentItem = {
     jan: "",
     maker: "",
     name: ""
 };
-
-// -------------------------------------
-// HTML
-// -------------------------------------
 
 const janEl =
     document.getElementById("jan");
@@ -69,10 +51,6 @@ const stopBtn =
 const saveBtn =
     document.getElementById("saveBtn");
 
-// -------------------------------------
-// ボタン
-// -------------------------------------
-
 startBtn.addEventListener(
     "click",
     startScan
@@ -87,6 +65,7 @@ saveBtn.addEventListener(
     "click",
     saveCurrent
 );
+
 
 // =====================================
 // カメラ起動
@@ -128,12 +107,7 @@ async function startScan() {
                     return;
                 }
 
-                // ---------------------------------
-                // JANセット
-                // ---------------------------------
-
                 currentItem = {
-
                     jan:
                         String(decodedText)
                             .trim(),
@@ -141,40 +115,29 @@ async function startScan() {
                     maker: "",
 
                     name: ""
-
                 };
 
                 janEl.textContent =
                     currentItem.jan;
 
                 makerEl.textContent =
-                    "楽天検索中...";
+                    "検索中...";
 
                 nameEl.textContent =
-                    "楽天検索中...";
+                    "検索中...";
 
                 messageEl.textContent =
                     "JAN読み取り完了";
 
-                // ---------------------------------
-                // カメラ停止
-                // ---------------------------------
-
                 await stopScan();
 
-                // ---------------------------------
-                // 楽天検索
-                // ---------------------------------
-
-                await searchRakuten(
+                await findProduct(
                     currentItem.jan
                 );
 
             },
 
-            function() {
-                // 読み取り失敗は無視
-            }
+            function() {}
 
         );
 
@@ -196,15 +159,12 @@ async function startScan() {
                 await scanner.clear();
             }
 
-        }
-
-        catch (e) {}
+        } catch (e) {}
 
         scanner = null;
-
     }
-
 }
+
 
 // =====================================
 // カメラ停止
@@ -217,155 +177,40 @@ async function stopScan() {
     }
 
     try {
-
         await scanner.stop();
-
-    }
-
-    catch (e) {
-
+    } catch (e) {
         console.log(e);
-
     }
 
     try {
-
         await scanner.clear();
-
-    }
-
-    catch (e) {
-
+    } catch (e) {
         console.log(e);
-
     }
 
     scanner = null;
-
 }
 
-// =====================================
-// 楽天検索
-// JSONP方式
-// =====================================
-
-function searchRakuten(jan) {
-
-    return new Promise(function(resolve) {
-
-        messageEl.textContent =
-            "楽天で商品情報を検索しています...";
-
-        // ---------------------------------
-        // 12桁の場合は0を追加したJANも試す
-        // ---------------------------------
-
-        const codes = [jan];
-
-        if (/^\d{12}$/.test(jan)) {
-
-            codes.push(
-                "0" + jan
-            );
-
-        }
-
-        searchRakutenCode(
-            codes,
-            0,
-            resolve
-        );
-
-    });
-
-}
 
 // =====================================
-// 楽天検索本体
+// 商品検索メイン
 // =====================================
 
-function searchRakutenCode(
-    codes,
-    index,
-    resolve
-) {
+async function findProduct(jan) {
 
-    if (index >= codes.length) {
-
-        makerEl.textContent =
-            "未取得";
-
-        nameEl.textContent =
-            "未取得";
-
-        messageEl.textContent =
-            "❌ 楽天に商品情報がありません";
-
-        resolve(false);
-
-        return;
-    }
-
-    const productCode =
-        codes[index];
+    messageEl.textContent =
+        "楽天 商品価格ナビを検索中...";
 
     // ---------------------------------
-    // JSONPコールバック名
+    // ① 商品価格ナビ
     // ---------------------------------
 
-    const callbackName =
-        "BESTScanRakutenCallback";
+    try {
 
-    // ---------------------------------
-    // 既存script削除
-    // ---------------------------------
+        const product =
+            await rakutenProductSearch(jan);
 
-    const oldScript =
-        document.getElementById(
-            "rakuten-api-script"
-        );
-
-    if (oldScript) {
-        oldScript.remove();
-    }
-
-    // ---------------------------------
-    // JSONPコールバック
-    // ---------------------------------
-
-    window[callbackName] =
-        function(data) {
-
-            console.log(
-                "楽天API response:",
-                data
-            );
-
-            // ---------------------------------
-            // 商品なし
-            // ---------------------------------
-
-            if (
-                !data ||
-                !data.items ||
-                data.items.length === 0
-            ) {
-
-                searchRakutenCode(
-                    codes,
-                    index + 1,
-                    resolve
-                );
-
-                return;
-            }
-
-            // ---------------------------------
-            // 商品取得
-            // ---------------------------------
-
-            const product =
-                data.items[0];
+        if (product) {
 
             const maker =
                 String(
@@ -381,48 +226,212 @@ function searchRakutenCode(
                     ""
                 ).trim();
 
-            // ---------------------------------
-            // 画面表示
-            // ---------------------------------
+            if (maker || name) {
 
-            currentItem.maker =
-                maker;
+                currentItem.maker =
+                    maker;
 
-            currentItem.name =
-                name;
+                currentItem.name =
+                    name;
 
-            makerEl.textContent =
-                maker || "未取得";
+                makerEl.textContent =
+                    maker || "未取得";
 
-            nameEl.textContent =
-                name || "未取得";
-
-            if (!maker && !name) {
+                nameEl.textContent =
+                    name || "未取得";
 
                 messageEl.textContent =
-                    "❌ 商品情報を取得できませんでした";
+                    "楽天 商品価格ナビから取得しました";
 
-                resolve(false);
+                await saveCurrent();
+
+                return;
+            }
+        }
+
+    } catch (error) {
+
+        console.log(
+            "商品価格ナビ検索失敗:",
+            error
+        );
+    }
+
+
+    // ---------------------------------
+    // ② 楽天市場 fallback
+    // ---------------------------------
+
+    messageEl.textContent =
+        "楽天市場の商品を検索中...";
+
+    try {
+
+        const item =
+            await rakutenItemSearch(jan);
+
+        if (item) {
+
+            const name =
+                String(
+                    item.itemName ||
+                    ""
+                ).trim();
+
+            const maker =
+                guessMaker(name);
+
+            if (name) {
+
+                currentItem.maker =
+                    maker;
+
+                currentItem.name =
+                    name;
+
+                makerEl.textContent =
+                    maker || "未取得";
+
+                nameEl.textContent =
+                    name;
+
+                messageEl.textContent =
+                    "楽天市場から商品情報を取得しました";
+
+                await saveCurrent();
+
+                return;
+            }
+        }
+
+    } catch (error) {
+
+        console.log(
+            "楽天市場検索失敗:",
+            error
+        );
+    }
+
+
+    // ---------------------------------
+    // ③ 見つからない
+    // ---------------------------------
+
+    makerEl.textContent =
+        "未取得";
+
+    nameEl.textContent =
+        "未取得";
+
+    messageEl.textContent =
+        "❌ 楽天に商品情報がありません";
+}
+
+
+// =====================================
+// 商品価格ナビ検索
+// =====================================
+
+function rakutenProductSearch(jan) {
+
+    return new Promise(function(resolve, reject) {
+
+        const codes = [jan];
+
+        if (/^\d{12}$/.test(jan)) {
+
+            codes.push(
+                "0" + jan
+            );
+        }
+
+        rakutenProductSearchCode(
+            codes,
+            0,
+            resolve,
+            reject
+        );
+    });
+}
+
+
+// =====================================
+// 商品価格ナビ検索本体
+// =====================================
+
+function rakutenProductSearchCode(
+    codes,
+    index,
+    resolve,
+    reject
+) {
+
+    if (index >= codes.length) {
+
+        resolve(null);
+
+        return;
+    }
+
+    const callbackName =
+        "BESTProductCallback_" +
+        Date.now();
+
+    const script =
+        document.createElement("script");
+
+    script.id =
+        "rakuten-product-script";
+
+    let finished = false;
+
+    const cleanup =
+        function() {
+
+            if (script.parentNode) {
+                script.parentNode.removeChild(
+                    script
+                );
+            }
+
+            try {
+                delete window[callbackName];
+            } catch (e) {}
+        };
+
+    window[callbackName] =
+        function(data) {
+
+            if (finished) {
+                return;
+            }
+
+            finished = true;
+
+            clearTimeout(timeout);
+
+            cleanup();
+
+            if (
+                data &&
+                data.items &&
+                data.items.length > 0
+            ) {
+
+                resolve(
+                    data.items[0]
+                );
 
                 return;
             }
 
-            // ---------------------------------
-            // GASへ保存
-            // ---------------------------------
-
-            saveCurrent()
-                .then(function() {
-
-                    resolve(true);
-
-                });
-
+            rakutenProductSearchCode(
+                codes,
+                index + 1,
+                resolve,
+                reject
+            );
         };
-
-    // ---------------------------------
-    // URL
-    // ---------------------------------
 
     const params = {
 
@@ -439,14 +448,13 @@ function searchRakutenCode(
             "2",
 
         productCode:
-            productCode,
+            codes[index],
 
         hits:
             "1",
 
         callback:
             callbackName
-
     };
 
     const query =
@@ -464,83 +472,382 @@ function searchRakutenCode(
             })
             .join("&");
 
-    // ---------------------------------
-    // script生成
-    // ---------------------------------
-
-    const script =
-        document.createElement(
-            "script"
-        );
-
-    script.id =
-        "rakuten-api-script";
-
     script.src =
-        RAKUTEN_API_URL +
+        RAKUTEN_PRODUCT_API +
         "?" +
         query;
 
     script.onerror =
         function() {
 
-            console.error(
-                "楽天API読み込みエラー"
-            );
+            if (finished) {
+                return;
+            }
 
-            searchRakutenCode(
+            finished = true;
+
+            clearTimeout(timeout);
+
+            cleanup();
+
+            rakutenProductSearchCode(
                 codes,
                 index + 1,
-                resolve
+                resolve,
+                reject
             );
-
         };
-
-    // ---------------------------------
-    // タイムアウト
-    // ---------------------------------
 
     const timeout =
         setTimeout(
             function() {
 
-                if (
-                    document.getElementById(
-                        "rakuten-api-script"
-                    )
-                ) {
-
-                    document
-                        .getElementById(
-                            "rakuten-api-script"
-                        )
-                        .remove();
-
+                if (finished) {
+                    return;
                 }
 
-                console.error(
-                    "楽天APIタイムアウト"
-                );
+                finished = true;
 
-                searchRakutenCode(
+                cleanup();
+
+                rakutenProductSearchCode(
                     codes,
                     index + 1,
-                    resolve
+                    resolve,
+                    reject
+                );
+
+            },
+            8000
+        );
+
+    document.body.appendChild(
+        script
+    );
+}
+
+
+// =====================================
+// 楽天市場 商品検索
+// =====================================
+
+function rakutenItemSearch(jan) {
+
+    return new Promise(function(resolve, reject) {
+
+        const codes = [jan];
+
+        if (/^\d{12}$/.test(jan)) {
+
+            codes.push(
+                "0" + jan
+            );
+        }
+
+        rakutenItemSearchCode(
+            codes,
+            0,
+            resolve,
+            reject
+        );
+    });
+}
+
+
+// =====================================
+// 楽天市場検索本体
+// =====================================
+
+function rakutenItemSearchCode(
+    codes,
+    index,
+    resolve,
+    reject
+) {
+
+    if (index >= codes.length) {
+
+        resolve(null);
+
+        return;
+    }
+
+    const callbackName =
+        "BESTItemCallback_" +
+        Date.now();
+
+    const script =
+        document.createElement("script");
+
+    script.id =
+        "rakuten-item-script";
+
+    let finished = false;
+
+    const cleanup =
+        function() {
+
+            if (script.parentNode) {
+                script.parentNode.removeChild(
+                    script
+                );
+            }
+
+            try {
+                delete window[callbackName];
+            } catch (e) {}
+        };
+
+    window[callbackName] =
+        function(data) {
+
+            if (finished) {
+                return;
+            }
+
+            finished = true;
+
+            clearTimeout(timeout);
+
+            cleanup();
+
+            if (
+                data &&
+                data.Items &&
+                data.Items.length > 0
+            ) {
+
+                resolve(
+                    data.Items[0].Item
+                );
+
+                return;
+            }
+
+            if (
+                data &&
+                data.items &&
+                data.items.length > 0
+            ) {
+
+                resolve(
+                    data.items[0]
+                );
+
+                return;
+            }
+
+            rakutenItemSearchCode(
+                codes,
+                index + 1,
+                resolve,
+                reject
+            );
+        };
+
+    const params = {
+
+        applicationId:
+            RAKUTEN_APP_ID,
+
+        accessKey:
+            RAKUTEN_ACCESS_KEY,
+
+        format:
+            "json",
+
+        formatVersion:
+            "2",
+
+        keyword:
+            codes[index],
+
+        hits:
+            "10",
+
+        field:
+            "1",
+
+        availability:
+            "0",
+
+        callback:
+            callbackName
+    };
+
+    const query =
+        Object.keys(params)
+            .map(function(key) {
+
+                return (
+                    encodeURIComponent(key) +
+                    "=" +
+                    encodeURIComponent(
+                        params[key]
+                    )
+                );
+
+            })
+            .join("&");
+
+    script.src =
+        RAKUTEN_ITEM_API +
+        "?" +
+        query;
+
+    script.onerror =
+        function() {
+
+            if (finished) {
+                return;
+            }
+
+            finished = true;
+
+            clearTimeout(timeout);
+
+            cleanup();
+
+            rakutenItemSearchCode(
+                codes,
+                index + 1,
+                resolve,
+                reject
+            );
+        };
+
+    const timeout =
+        setTimeout(
+            function() {
+
+                if (finished) {
+                    return;
+                }
+
+                finished = true;
+
+                cleanup();
+
+                rakutenItemSearchCode(
+                    codes,
+                    index + 1,
+                    resolve,
+                    reject
                 );
 
             },
             10000
         );
 
-    // ---------------------------------
-    // script追加
-    // ---------------------------------
-
     document.body.appendChild(
         script
     );
-
 }
+
+
+// =====================================
+// メーカー推定
+// テニス用品用
+// =====================================
+
+function guessMaker(name) {
+
+    const text =
+        String(name || "")
+            .toUpperCase();
+
+    const makers = [
+
+        ["YONEX", "YONEX"],
+
+        ["ヨネックス", "YONEX"],
+
+        ["WILSON", "Wilson"],
+
+        ["ウイルソン", "Wilson"],
+
+        ["BABOLAT", "Babolat"],
+
+        ["バボラ", "Babolat"],
+
+        ["HEAD", "HEAD"],
+
+        ["ヘッド", "HEAD"],
+
+        ["DUNLOP", "DUNLOP"],
+
+        ["ダンロップ", "DUNLOP"],
+
+        ["PRINCE", "Prince"],
+
+        ["プリンス", "Prince"],
+
+        ["GOSEN", "GOSEN"],
+
+        ["ゴーセン", "GOSEN"],
+
+        ["BRIDGESTONE", "BRIDGESTONE"],
+
+        ["ブリヂストン", "BRIDGESTONE"],
+
+        ["SRIXON", "SRIXON"],
+
+        ["スリクソン", "SRIXON"],
+
+        ["MIZUNO", "MIZUNO"],
+
+        ["ミズノ", "MIZUNO"],
+
+        ["ASICS", "ASICS"],
+
+        ["アシックス", "ASICS"],
+
+        ["ADIDAS", "adidas"],
+
+        ["アディダス", "adidas"],
+
+        ["NEW BALANCE", "New Balance"],
+
+        ["ニューバランス", "New Balance"],
+
+        ["SNAUWAERT", "SNAUWAERT"],
+
+        ["スノワート", "SNAUWAERT"],
+
+        ["TOALSON", "TOALSON"],
+
+        ["トアルソン", "TOALSON"],
+
+        ["Tecnifibre", "Tecnifibre"],
+
+        ["テクニファイバー", "Tecnifibre"],
+
+        ["FILA", "FILA"],
+
+        ["フィラ", "FILA"]
+
+    ];
+
+    for (
+        let i = 0;
+        i < makers.length;
+        i++
+    ) {
+
+        if (
+            text.indexOf(
+                makers[i][0]
+            ) !== -1
+        ) {
+
+            return makers[i][1];
+
+        }
+    }
+
+    return "";
+}
+
 
 // =====================================
 // GASへ保存
@@ -555,7 +862,17 @@ async function saveCurrent() {
         );
 
         return;
+    }
 
+    if (
+        !currentItem.maker &&
+        !currentItem.name
+    ) {
+
+        messageEl.textContent =
+            "❌ 商品情報がないため保存できません";
+
+        return;
     }
 
     messageEl.textContent =
@@ -568,9 +885,11 @@ async function saveCurrent() {
                 API_URL,
                 {
 
-                    method: "POST",
+                    method:
+                        "POST",
 
-                    redirect: "follow",
+                    redirect:
+                        "follow",
 
                     headers: {
 
@@ -583,7 +902,6 @@ async function saveCurrent() {
                         JSON.stringify(
                             currentItem
                         )
-
                 }
             );
 
@@ -595,10 +913,6 @@ async function saveCurrent() {
             json
         );
 
-        // ---------------------------------
-        // 新規
-        // ---------------------------------
-
         if (
             json.status ===
             "created"
@@ -608,12 +922,7 @@ async function saveCurrent() {
                 "✅ 新規登録しました（数量 1）";
 
             return;
-
         }
-
-        // ---------------------------------
-        // 更新
-        // ---------------------------------
 
         if (
             json.status ===
@@ -626,12 +935,7 @@ async function saveCurrent() {
                 "）";
 
             return;
-
         }
-
-        // ---------------------------------
-        // エラー
-        // ---------------------------------
 
         messageEl.textContent =
             "❌ エラー：" +
@@ -649,23 +953,18 @@ async function saveCurrent() {
         messageEl.textContent =
             "❌ 保存通信エラー：" +
             error.message;
-
     }
-
 }
 
+
 // =====================================
-// 初期化
+// 初期表示
 // =====================================
 
-janEl.textContent =
-    "---";
+janEl.textContent = "---";
 
-makerEl.textContent =
-    "---";
+makerEl.textContent = "---";
 
-nameEl.textContent =
-    "---";
+nameEl.textContent = "---";
 
-messageEl.textContent =
-    "";
+messageEl.textContent = "";
