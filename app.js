@@ -45,7 +45,7 @@ async function startScan() {
         }
 
         // 初回だけ確認用（完成後は削除）
-        console.table(cameras);
+        alert(JSON.stringify(cameras, null, 2));
 
         // メインカメラ(1x)を優先
         let camera = cameras.find(c => {
